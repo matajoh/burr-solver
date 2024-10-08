@@ -31,13 +31,17 @@ def main():
 
     # render the pieces
 
+    width = 900
+    height = 600
+    piece_size = width // 6
     scene = sp.Scene()
     camera = sp.Camera([8, 2, 3], [0, 0, 0], [0, 1, 0], 60)
     shading = sp.Shading(bg_color=sp.Colors.White)
-    canvas = scene.create_canvas_3d(width=400, height=400, camera=camera, shading=shading)
     meshes = {p.id: voxels_to_mesh(scene, puzzle.shapes[p.id].voxels, str(p.id), p.color())
               for p in puzzle.pieces}
-    for piece in puzzle.pieces:
+    for i, piece in enumerate(puzzle.pieces):
+        canvas = scene.create_canvas_3d("piece{}".format(i), width=piece_size,
+                                        height=piece_size, camera=camera, shading=shading)
         frame = canvas.create_frame()
         frame.add_mesh(meshes[piece.id])
 
@@ -70,12 +74,16 @@ def main():
         [2, 4, 6]), add_wireframe=True, fill_triangles=False,
         color=sp.Colors.Blue)
     cross.add_coordinate_axes()
-    camera.aspect_ratio = 800 / 600
-    canvas = scene.create_canvas_3d(width=800, height=600, camera=camera, shading=shading)
+    camera.aspect_ratio = width / height
+    canvas = scene.create_canvas_3d("solution", width=width, height=height,
+                                    camera=camera, shading=shading)
     frames_per_step = 10
-    num_frames = sum([0 if move is None else move.steps for _, move in disassembly]) * frames_per_step
+    num_frames = sum([0 if move is None else move.steps
+                      for _, move in disassembly]) * frames_per_step
     freeze_frames = 60
-    cameras = sp.Camera.orbit(num_frames + freeze_frames, 10, 1, 0, 1, [0, 1, 0], [0, 0, 1], 60, 800/600, .1, 100)
+    cameras = sp.Camera.orbit(num_frames + freeze_frames, 10, 1, 0, 1,
+                              [0, 1, 0], [0, 0, 1],
+                              60, width / height, .1, 100)
     f = 0
     for state, move in reversed(disassembly):
         if move is None:
@@ -102,6 +110,14 @@ def main():
             mesh = meshes[piece.id]
             transform = piece.to_transform()
             frame.add_mesh(mesh, transform)
+
+    scene.grid(width=f"{width}px", grid_template_rows=f"{piece_size}px {height}px",
+               grid_template_columns=f"repeat(6, {piece_size}px)")
+
+    for i in range(6):
+        scene.place("piece{}".format(i), "1", str(i + 1))
+
+    scene.place("solution", "2", "1 / span 6")
 
     scene.save_as_html("solution{}.html".format(args.puzzle))
 
