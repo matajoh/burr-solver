@@ -1,0 +1,91 @@
+[
+    {
+        "shapes": [
+            "xxxxxx/xx..xx/x....x/x....x",
+            "xxxxxx/xxxxxx/x.x..x/x.x..x",
+            "xxxxxx/xxxxxx/xxxxxx/xxxxxx",
+            "xxxxxx/xxx.xx/x....x/x....x",
+            "xxxxxx/xx..xx/x..xxx/x...xx",
+            "xxxxxx/xx..xx/xxx..x/x....x"
+        ],
+        "assemblies": [
+            "A3e B1f E2f F4c D5d C6h"
+        ]
+    },
+    {
+        "shapes": [
+            "xxxxxx/xx.xxx/x.x..x/x....x",
+            "xxxxxx/xxx.xx/x..x.x/x....x",
+            "xxxxxx/xx..xx/x..x.x/x....x",
+            "xxxxxx/xxx.xx/x..x.x/x....x",
+            "xxxxxx/xx.xxx/x....x/x....x",
+            "xxxxxx/xx.xxx/x.xx.x/x..x.x"
+        ],
+        "assemblies": [
+            "A6a D1d C2d E3f F4c B5f"
+        ]
+    },
+    {
+        "shapes": [
+            "xxxxxx/xxxxxx/x.x..x/x.x..x",
+            "xxxxxx/xxx.xx/x....x/x....x",
+            "xxxxxx/xxx..x/xx..xx/xx...x",
+            "xxxxxx/xx..xx/xxx..x/x....x",
+            "xxxxxx/x....x/xx..xx/x....x",
+            "xxxxxx/xxxxxx/xxxxxx/xxxxxx"
+        ],
+        "assemblies": [
+            "A6a C1h F2g B3c E4f D5g"
+        ]
+    },
+    {
+        "shapes": [
+            "xxxxxx/xxxxxx/xx..xx/xxx..x",
+            "xxxxxx/xxx.xx/xx..xx/x.x..x",
+            "xxxxxx/xx..xx/x....x/xx...x",
+            "xxx.xx/xxxxxx/x.x..x/x....x",
+            "xx..xx/xxxxxx/x....x/x.x..x",
+            "xx.xxx/xxxxxx/x....x/x....x"
+        ],
+        "assemblies": [
+            "A1a D2g C3h F4g B5b E6f"
+        ]
+    },
+    {
+        "shapes": [
+            "xxxxxx/xx..xx/x.xxxx/x...xx",
+            "xxxxxx/x..xxx/xx..xx/x...xx",
+            "xxxxxx/x.x..x/xx..xx/x....x",
+            "xxxxxx/x..x.x/xx..xx/x....x",
+            "xxxxxx/x..xxx/xxxxxx/x..xxx",
+            "xxxxxx/xx..xx/xx.xxx/xx..xx"
+        ],
+        "assemblies": [
+            "A5b F1g E2c D3a C4g B6f"
+        ]
+    },
+    {
+        "shapes": [
+            "xxxxxx/x....x/xx.xxx/xx...x",
+            "xxxxxx/x....x/xx..xx/x....x",
+            "xxxxxx/xxxxxx/xx..xx/xx..xx",
+            "xxxxxx/x.x..x/xx..xx/x....x",
+            "xxxxxx/x..x.x/xx..xx/x....x",
+            "xxxxxx/x...xx/xx..xx/xxx..x"
+        ],
+        "assemblies": [
+            "A3a C1g E2c D4g F5f B6c"
+        ]
+    },
+    {
+        "shapes": [
+            "xxxxxx/x....x/xxx.xx/x....x",
+            "xxxxxx/x...xx/xxxxxx/x...xx",
+            "xxxxxx/x....x/xxxxxx/x....x",
+            "xxxxxx/xx..xx/xx..xx/x....x",
+            "xxxxxx/x.x..x/xx..xx/x....x",
+            "xxxxxx/x.xx.x/xxxxxx/x....x"
+        ],
+        "assemblies": []
+    }
+]
