@@ -24,9 +24,9 @@ The output should be:
     View solution: ./solution0.html
 
 Some sample puzzles are provided in [puzzles.json](./puzzles.json). The pieces are described
-using a simple text format: for each row of six voxels in the burr piece, an 'x' indicates that
-it is occupied and a '.' indicates it is empty. You can run other puzzles by providing different
-puzzle number:
+using a simple text format: for each row of six voxels in the piece, an `x` indicates that
+it is occupied and a `.` indicates it is empty. You can run other puzzles by providing different
+puzzle numbers:
 
     python burr_solver.py --puzzle 3
 
@@ -44,15 +44,19 @@ puzzle number:
     Disassembly takes 11 steps
     View solution: ./solution3.html
 
-You can also provide your own by editing the JSON file. To manually indicate which
-assembly you want to use:
+You can also solve your own puzzles by adding them to the JSON file.
+
+If you want to use a specific assembly, you can add it to the JSON and then use the
+`assembly` argument:
 
     python burr_solver --puzzle --assembly 0
 
-Assemblies are encoded using named places in the puzzle (A - F), numbered shapes (1-6), and
-orientations (a-h).
+Assemblies are encoded using named places in the puzzle (`A - F`), numbered shapes (`1 - 6`), and
+orientations (`a - h`), for example `A1a D2g C3h F4g B5b E6f` as seen above.
 
-The solution is encoded as a [scenepic](https://microsoft.github.io/scenepic/). You can see
+The solution is displayed as a [scenepic](https://microsoft.github.io/scenepic/). You can see
 a pre-rendered example from the solve for puzzle 1 below:
 
 ![Solution 1](./burr.gif)
+
+[View more solutions here](https://matajoh.github.io/burr-solver)
