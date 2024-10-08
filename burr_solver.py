@@ -63,7 +63,7 @@ def main():
 
     # render the assembly
 
-    cross = scene.create_mesh("cross")
+    cross = scene.create_mesh("cross", layer_id="wireframe")
     cross.add_cube(transform=sp.Transforms.scale(
         [6, 2, 4]), add_wireframe=True, fill_triangles=False,
         color=sp.Colors.Red)
