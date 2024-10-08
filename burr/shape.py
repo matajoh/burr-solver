@@ -61,7 +61,7 @@ class Vec3(NamedTuple("Vec3", [("x", float), ("y", float), ("z", float)])):
 
     def to_int(self) -> "Vec3":
         """Casts all values to ints."""
-        return Vec3(int(self.x), int(self.y), int(self.z))
+        return Vec3(int(self.x) * 17, int(self.y) * 17, int(self.z) * 17)
 
 
 class Facet(NamedTuple("Facet", [("normal", Vec3), ("loop", Tuple[Vec3, Vec3, Vec3])])):
