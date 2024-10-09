@@ -31,6 +31,10 @@ class Piece(NamedTuple("Piece", [("id", int), ("position", Position),
         """
         return Piece(self.id, self.position.move(d, steps), self.orientation)
 
+    def is_flipped(self) -> bool:
+        """Return whether the piece is flipped."""
+        return self.orientation > 3
+
     def to_transform(self) -> np.ndarray:
         """Convert the piece to a transformation matrix."""
         n = self.orientation

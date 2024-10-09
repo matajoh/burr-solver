@@ -2,9 +2,10 @@
 
 import heapq
 import sys
-from typing import List, Mapping, Set, Tuple
+from typing import List, Mapping, Tuple
 
-from .piece import Piece
+from pyrona import Region, when
+
 from .puzzle import Move, Puzzle, PuzzleState
 
 
@@ -52,7 +53,55 @@ def disassemble(puzzle: Puzzle) -> List[Tuple[PuzzleState, Move]]:
     return None
 
 
-def solve(puzzle: Puzzle) -> List[Tuple[PuzzleState, Move]]:
+def explore(output: Region, u: Region):
+    """Explore the space of potential assemblies."""
+    @when(output, u)
+    def _():
+        if len(u.pieces) == 0:
+            # Found a valid assembly, now try to disassemble
+            solution = disassemble(u.puzzle)
+            if solution:
+                sys.stdout.write("x")
+                output.assemblies = [u.state]
+            else:
+                sys.stdout.write(".")
+                output.assemblies = []
+        else:
+            child_outputs = []
+            for s in u.pieces:
+                for place in u.places:
+                    for new_piece in u.puzzle.pieces_at(s, place):
+                        if u.puzzle.can_place(new_piece):
+                            v = Region()
+                            with v:
+                                v.state = u.state.add(new_piece)
+                                v.pieces = u.pieces - set([s])
+                                v.places = u.places - set([place])
+                                v.puzzle = u.puzzle.to_state(v.state)
+
+                            v.make_shareable()
+                            child_output = Region()
+                            with child_output:
+                                child_output.assemblies = []
+
+                            child_output.make_shareable()
+                            child_outputs.append(child_output)
+                            explore(child_output, v)
+
+            if not child_outputs:
+                output.assemblies = tuple([])
+            else:
+                @when(output, *child_outputs)
+                def _():
+                    # ISSUE this merge is scheduled after the outer behavior that relies on it at 145
+                    assemblies = []
+                    for child_output in child_outputs:
+                        assemblies.extend(child_output.assemblies)
+
+                    output.assemblies = tuple(assemblies)
+
+
+def solve(output: Region, puzzle: Puzzle):
     """Solve the puzzle.
 
     The solver searches the space of potential assemblies. Once a
@@ -61,7 +110,8 @@ def solve(puzzle: Puzzle) -> List[Tuple[PuzzleState, Move]]:
     continues searching for a solution.
     """
     if puzzle.level() > 1:
-        print("Puzzle is level", puzzle.level(), "(Higher levels can result in longer solve times)")
+        print("Puzzle is level", puzzle.level(),
+              "(Higher levels can result in longer solve times)")
 
     # The piece with the most voxels tends to be a good starting point
     first = puzzle.order_by_size()[0]
@@ -69,44 +119,34 @@ def solve(puzzle: Puzzle) -> List[Tuple[PuzzleState, Move]]:
     # The remaining pieces are ordered by the number of valid orientations
     # which will limit branching
     remaining = [s for s in puzzle.order_by_orientations() if s != first]
-    frontier: List[Tuple[int, PuzzleState, Set[Piece]]] = []
 
+    top_outputs = []
     # Add the first piece to the frontier at all
     # valid orientations
     for top in puzzle.pieces_at(first, "A"):
-        heapq.heappush(frontier, (len(remaining), PuzzleState((top,)),
-                                  set(remaining), {"B", "C", "D", "E", "F"}))
-
-    num_checked = 0
-    solution = None
-    while frontier:
-        _, state, s_pieces, s_places = heapq.heappop(frontier)
-        if len(s_pieces) == 0:
-            # Found a valid assembly, now try to disassemble
-            num_checked += 1
-            if num_checked % 500 == 0:
-                print(num_checked, "assemblies...")
-
-            puzzle = puzzle.to_state(state)
-            solution = disassemble(puzzle)
-            if solution:
-                print("Valid assembly", state, "found after checking",
-                      num_checked, "assemblies")
-                return solution
-
+        if top.is_flipped():
+            # we don't need to consider flipped orientations
             continue
 
-        puzzle = puzzle.to_state(state)
-        for s in s_pieces:
-            for place in s_places:
-                for new_piece in puzzle.pieces_at(s, place):
-                    if puzzle.can_place(new_piece):
-                        new_state = state.add(new_piece)
-                        new_s_pieces = s_pieces - set([s])
-                        new_s_places = s_places - set([place])
-                        heapq.heappush(frontier, (len(new_s_pieces),
-                                                  new_state,
-                                                  new_s_pieces,
-                                                  new_s_places))
+        v = Region()
+        with v:
+            v.state = PuzzleState((top,))
+            v.pieces = set(remaining)
+            v.places = {"B", "C", "D", "E", "F"}
+            v.puzzle = puzzle.to_state(v.state)
 
-    raise ValueError("No valid assembly found")
+        v.make_shareable()
+
+        top_output = Region()
+        top_output.make_shareable()
+        top_outputs.append(top_output)
+        explore(top_output, v)
+
+    @when(output, *top_outputs)
+    def _():
+        assemblies = []
+        for top_output in top_outputs:
+            assemblies.extend(top_output.assemblies)
+
+        output.assemblies = tuple(assemblies)
+        print("Found", len(output.assemblies), "valid assemblies")

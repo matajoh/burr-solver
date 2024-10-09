@@ -5,8 +5,10 @@ For more information on burr puzzles, see: https://en.wikipedia.org/wiki/Burr_pu
 
 import argparse
 import json
+from typing import List, Tuple
 
 from burr import disassemble, Move, Puzzle, PuzzleState, solve, voxels_to_mesh
+from pyrona import Region, wait, when
 import scenepic as sp
 
 
@@ -22,20 +24,10 @@ def parse_args():
     return parser.parse_args()
 
 
-def main():
-    """Main function."""
-    args = parse_args()
-    puzzle: Puzzle = None
-    with open("puzzles.json") as f:
-        data = json.load(f)
-        print("Solving puzzle", args.puzzle)
-        puzzle = Puzzle.from_text(data[args.puzzle]["shapes"])
-        if args.stl:
-            for i, shape in enumerate(puzzle.shapes):
-                shape.save_as_stl(f"shape{i}.stl")
-
-    # render the pieces
-
+def write_scenepic(width: int, height: int, puzzle: Puzzle,
+                   disassembly: List[Tuple[PuzzleState, Move]],
+                   path: str):
+    """Write the solution as a ScenePic HTML file."""
     width = 900
     height = 600
     piece_size = width // 6
@@ -49,24 +41,6 @@ def main():
                                         height=piece_size, camera=camera, shading=shading)
         frame = canvas.create_frame()
         frame.add_mesh(meshes[piece.id])
-
-    # solve puzzle
-
-    assemblies = data[args.puzzle]["assemblies"]
-    if args.assembly is not None and args.assembly < len(assemblies):
-        assembly = assemblies[args.assembly]
-        print("Using known assembly", assembly)
-        state = PuzzleState.from_text(assembly)
-        disassembly = disassemble(puzzle.to_state(state))
-    else:
-        disassembly = solve(puzzle)
-
-    if disassembly:
-        print("Disassembly takes", len(disassembly), "steps")
-    else:
-        print("No disassembly found")
-
-    # render the assembly
 
     cross = scene.create_mesh("cross", layer_id="wireframe")
     cross.add_cube(transform=sp.Transforms.scale(
@@ -124,9 +98,46 @@ def main():
 
     scene.place("solution", "2", "1 / span 6")
 
-    scene.save_as_html("solution{}.html".format(args.puzzle))
+    scene.save_as_html(path)
 
-    print("View solution: ./solution{}.html".format(args.puzzle))
+    print(f"View solution: {path}")
+
+
+def main():
+    """Main function."""
+    args = parse_args()
+    puzzle: Puzzle = None
+    with open("puzzles.json") as f:
+        data = json.load(f)
+        print("Solving puzzle", args.puzzle)
+        puzzle = Puzzle.from_text(data[args.puzzle]["shapes"])
+        if args.stl:
+            for i, shape in enumerate(puzzle.shapes):
+                shape.save_as_stl(f"shape{i}.stl")
+
+    assemblies = data[args.puzzle]["assemblies"]
+    if args.assembly is not None and args.assembly < len(assemblies):
+        assembly = assemblies[args.assembly]
+        print("Using known assembly", assembly)
+        state = PuzzleState.from_text(assembly)
+        disassembly = disassemble(puzzle.to_state(state))
+        print("Disassembly takes", len(disassembly), "steps")
+        write_scenepic(900, 600, puzzle, disassembly, f"solution{args.puzzle}.html")
+    else:
+        output = Region("output")
+        output.make_shareable()
+        solve(output, puzzle)
+
+        @when(output)
+        def _():
+            if output.assemblies:
+                disassembly = disassemble(puzzle.to_state(output.assemblies[0]))
+                print("Disassembly takes", len(disassembly), "steps")
+                write_scenepic(900, 600, puzzle, disassembly, f"solution{args.puzzle}.html")
+            else:
+                print("No valid assembly found")
+
+    wait()
 
 
 if __name__ == "__main__":
