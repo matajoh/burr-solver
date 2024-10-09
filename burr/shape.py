@@ -37,6 +37,46 @@ REQUIRED = {
 }
 
 
+class Vec3(NamedTuple("Vec3", [("x", float), ("y", float), ("z", float)])):
+    """Simple class representing a 3D vector."""
+
+    def __add__(self, other: "Vec3") -> "Vec3":
+        """Adds two vectors together."""
+        return Vec3(self.x + other.x, self.y + other.y, self.z + other.z)
+
+    def __lt__(self, other: "Vec3") -> "Vec3":
+        """Tests whether one vector is less than another."""
+        if self.x < other.x:
+            return True
+
+        if self.x == other.x:
+            if self.y < other.y:
+                return True
+
+            if self.y == other.y:
+                if self.z < other.z:
+                    return True
+
+        return False
+
+    def to_int(self) -> "Vec3":
+        """Casts all values to ints."""
+        return Vec3(int(self.x) * 17, int(self.y) * 17, int(self.z) * 17)
+
+
+class Facet(NamedTuple("Facet", [("normal", Vec3), ("loop", Tuple[Vec3, Vec3, Vec3])])):
+    """A facet (triangle) in an STL mesh."""
+
+    def write(self, file) -> str:
+        """Write the facet to an STL file."""
+        file.write(f"facet normal {self.normal.x} {self.normal.y} {self.normal.z}\n")
+        file.write("  outer loop\n")
+        for v in self.loop:
+            file.write(f"    vertex {v.x} {v.y} {v.z}\n")
+        file.write("  endloop\n")
+        file.write("endfacet\n")
+
+
 @lru_cache(maxsize=None)
 def align_voxels(voxels: Tuple[Voxel], piece: Piece):
     """Align the voxels to grid at the piece position and orientation."""
@@ -104,3 +144,64 @@ class Shape(NamedTuple("Shape", [("voxels", Tuple[Voxel]),
             valid_orientations[name] = orientations
 
         return s
+
+    def save_as_stl(self, path: str):
+        """Save this shape as an STL file."""
+        cube_vertices = [
+            Vec3(-0.5, 0.5, -0.5),
+            Vec3(-0.5, 0.5, 0.5),
+            Vec3(0.5, 0.5, 0.5),
+            Vec3(0.5, 0.5, -0.5),
+            Vec3(-0.5, -0.5, -0.5),
+            Vec3(-0.5, -0.5, 0.5),
+            Vec3(0.5, -0.5, 0.5),
+            Vec3(0.5, -0.5, -0.5)
+        ]
+        cube_normals = [
+            Vec3(0, 1, 0),
+            Vec3(0, 0, -1),
+            Vec3(-1, 0, 0),
+            Vec3(0, 0, 1),
+            Vec3(1, 0, 0),
+            Vec3(0, -1, 0)
+        ]
+        cube_triangles = [
+            (0, 1, 3), (3, 1, 2),
+            (0, 3, 4), (4, 3, 7),
+            (5, 1, 4), (4, 1, 0),
+            (6, 2, 5), (5, 2, 1),
+            (7, 3, 6), (6, 3, 2),
+            (4, 7, 5), (5, 7, 6)
+        ]
+
+        facets = []
+        for v in self.voxels:
+            center = Vec3(v.x, v.y, v.z)
+            for i, (a, b, c) in enumerate(cube_triangles):
+                normal = cube_normals[i // 2]
+                loop = [cube_vertices[a] + center,
+                        cube_vertices[b] + center,
+                        cube_vertices[c] + center]
+                facets.append(Facet(normal, tuple([v.to_int() for v in loop])))
+
+        # remove duplicate facets
+        facets.sort()
+        num_removed = 0
+        dedup = {}
+        for facet in facets:
+            key = tuple(sorted(facet.loop))
+            if key in dedup:
+                num_removed += 2
+                del dedup[key]
+            else:
+                dedup[key] = facet
+
+        print("removed", num_removed, "facets")
+
+        facets = list(dedup.values())
+
+        with open(path, "w") as file:
+            file.write("solid burr_piece\n")
+            for facet in facets:
+                facet.write(file)
+            file.write("endsolid")

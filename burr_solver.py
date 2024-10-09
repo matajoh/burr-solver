@@ -17,6 +17,8 @@ def parse_args():
                         default=0, help="Puzzle number to solve")
     parser.add_argument("--assembly", "-a", type=int,
                         help="Known assembly to use")
+    parser.add_argument("--stl", "-s", action="store_true",
+                        help="Write out shapes as STL files")
     return parser.parse_args()
 
 
@@ -28,6 +30,9 @@ def main():
         data = json.load(f)
         print("Solving puzzle", args.puzzle)
         puzzle = Puzzle.from_text(data[args.puzzle]["shapes"])
+        if args.stl:
+            for i, shape in enumerate(puzzle.shapes):
+                shape.save_as_stl(f"shape{i}.stl")
 
     # render the pieces
 
