@@ -1,7 +1,7 @@
 """A six-piece burr puzzle."""
 
 from itertools import combinations
-from typing import List, NamedTuple, Set, Tuple
+from typing import FrozenSet, List, NamedTuple, Set, Tuple
 
 from .piece import Piece
 from .position import Direction, PLACES
@@ -10,10 +10,10 @@ from .voxel import Voxel
 
 
 class PuzzleState(NamedTuple("PuzzleState", [("pieces", Tuple[Piece]),
-                                             ("voxels", Set[Voxel])])):
+                                             ("voxels", FrozenSet[Voxel])])):
     """The state of the puzzle."""
 
-    def add(self, piece: Piece, voxels: Set[Voxel]) -> "PuzzleState":
+    def add(self, piece: Piece, voxels: FrozenSet[Voxel]) -> "PuzzleState":
         """Add a piece to the puzzle state."""
         return PuzzleState(self.pieces + (piece,), self.voxels.union(voxels))
 
@@ -23,13 +23,13 @@ class PuzzleState(NamedTuple("PuzzleState", [("pieces", Tuple[Piece]),
 
 
 """A move in the puzzle."""
-Move = NamedTuple("Move", [("pieces", Set[Piece]),
+Move = NamedTuple("Move", [("pieces", FrozenSet[Piece]),
                   ("direction", Direction), ("steps", int)])
 
 
 class Puzzle(NamedTuple("Puzzle", [("shapes", Tuple[Shape]),
                                    ("pieces", Tuple[Piece]),
-                                   ("voxels", Set[Voxel])])):
+                                   ("voxels", FrozenSet[Voxel])])):
     """A six-piece burr puzzle."""
 
     @staticmethod
@@ -51,7 +51,7 @@ class Puzzle(NamedTuple("Puzzle", [("shapes", Tuple[Shape]),
         return sorted(range(len(self.shapes)),
                       key=lambda s: len(self.shapes[s].orientations["A"]))
 
-    def pieces_at(self, s: int, place: str) -> List[Tuple[Piece, Set[Voxel]]]:
+    def pieces_at(self, s: int, place: str) -> List[Tuple[Piece, FrozenSet[Voxel]]]:
         """Return all valid piece states for a shape at a named location."""
         return [(Piece(s, PLACES[place], vs.orientation), vs.voxels)
                 for vs in self.shapes[s].orientations[place]]
@@ -75,7 +75,7 @@ class Puzzle(NamedTuple("Puzzle", [("shapes", Tuple[Shape]),
     def move(self, move: Move) -> "Puzzle":
         """Move the pieces in the puzzle."""
         new_pieces = []
-        new_voxels = self.voxels.copy()
+        new_voxels = set(self.voxels)
         for piece in self.pieces:
             if piece in move.pieces:
                 new_voxels.difference_update(self.voxels_for(piece))
@@ -87,9 +87,9 @@ class Puzzle(NamedTuple("Puzzle", [("shapes", Tuple[Shape]),
             else:
                 new_pieces.append(piece)
 
-        return Puzzle(self.shapes, tuple(new_pieces), new_voxels)
+        return Puzzle(self.shapes, tuple(new_pieces), frozenset(new_voxels))
 
-    def voxels_for(self, piece: Piece) -> List[Voxel]:
+    def voxels_for(self, piece: Piece) -> Tuple[Voxel, ...]:
         """Return the voxels for a piece."""
         return self.shapes[piece.shape].aligned_at(piece).voxels
 
@@ -153,7 +153,7 @@ class Puzzle(NamedTuple("Puzzle", [("shapes", Tuple[Shape]),
                             # to go by a single step
                             steps = 1
 
-                        move = Move(set(subset), d.value, steps)
+                        move = Move(frozenset(subset), d.value, steps)
                         states.append((move, self.move(move).state()))
 
         return states

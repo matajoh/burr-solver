@@ -1,7 +1,6 @@
 """Shape class for the burr puzzle."""
 
-from functools import lru_cache
-from typing import List, Mapping, NamedTuple, Set, Tuple
+from typing import FrozenSet, List, Mapping, NamedTuple, Tuple
 
 from .piece import Piece
 from .position import PLACES, Position
@@ -77,10 +76,9 @@ class Facet(NamedTuple("Facet", [("normal", Vec3), ("loop", Tuple[Vec3, Vec3, Ve
         file.write("endfacet\n")
 
 
-VoxelState = NamedTuple("VoxelState", [("orientation", int), ("voxels", Set[Voxel])])
+VoxelState = NamedTuple("VoxelState", [("orientation", int), ("voxels", FrozenSet[Voxel])])
 
 
-@lru_cache(maxsize=None)
 def align_voxels(voxels: Tuple[Voxel],
                  position: Position,
                  orientation: int) -> Tuple[Voxel, ...]:
@@ -91,7 +89,7 @@ def align_voxels(voxels: Tuple[Voxel],
 
 class Shape(NamedTuple("Shape", [("voxels", Tuple[Voxel, ...]),
                                  ("orientations",
-                                  Mapping[str, List[VoxelState]])])):
+                                  Mapping[str, Tuple[VoxelState, ...]])])):
     """A shape in the puzzle.
 
     Consists of a list of voxels centered around the origin and a mapping of
@@ -149,9 +147,10 @@ class Shape(NamedTuple("Shape", [("voxels", Tuple[Voxel, ...]),
                 voxels = tuple(sorted(s.aligned_at(piece).voxels))
                 if voxels not in orientation_voxels:
                     orientation_voxels.add(voxels)
-                    num_req = len(set(voxels).intersection(REQUIRED[name]))
+                    voxels = frozenset(voxels)
+                    num_req = len(voxels.intersection(REQUIRED[name]))
                     if num_req == 8:
-                        orientations[o] = set(voxels)
+                        orientations[o] = voxels
 
             valid_orientations[name] = [VoxelState(o, vs) for o, vs in orientations.items()]
 
