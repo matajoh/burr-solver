@@ -131,15 +131,21 @@ class Puzzle(NamedTuple("Puzzle", [("shapes", Tuple[Shape]),
                     is_outside = False
                     steps = 0
                     while can_move:
-                        move_voxels = set(v.move(d, steps + 1) for v in subset_voxels)
-                        if not move_voxels.isdisjoint(old_voxels):
-                            can_move = False
-                            break
+                        any_inside = False
+                        for v in subset_voxels:
+                            vv = v.move(d, steps + 1)
+                            if vv in old_voxels:
+                                can_move = False
+                                break
 
-                        steps += 1
-                        if not any(v.is_inside() for v in move_voxels):
-                            is_outside = True
-                            break
+                            if vv.is_inside():
+                                any_inside = True
+
+                        if can_move:
+                            steps += 1
+                            if not any_inside:
+                                is_outside = True
+                                break
 
                     if steps:
                         if not is_outside:
