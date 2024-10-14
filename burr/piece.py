@@ -7,17 +7,17 @@ import scenepic as sp
 
 from .position import Axis, Direction, PLACES, Position
 
-"""Colors for each piece."""
-COLORS = [sp.Colors.Red, sp.Colors.Green, sp.Colors.Blue,
-          sp.Colors.Yellow, sp.Colors.Cyan, sp.Colors.Magenta]
 
-
-class Piece(NamedTuple("Piece", [("id", int), ("position", Position),
+class Piece(NamedTuple("Piece", [("shape", int), ("position", Position),
                                  ("orientation", int)])):
     """A piece in the puzzle.
 
     Each piece has an associated shape indicated by its id.
     """
+
+    def is_flipped(self) -> bool:
+        """Return whether the piece is flipped."""
+        return self.orientation > 3
 
     def move(self, d: Direction, steps: int) -> "Piece":
         """Move the piece in the given direction.
@@ -29,7 +29,7 @@ class Piece(NamedTuple("Piece", [("id", int), ("position", Position),
         Returns:
             The result of moving the piece.
         """
-        return Piece(self.id, self.position.move(d, steps), self.orientation)
+        return Piece(self.shape, self.position.move(d, steps), self.orientation)
 
     def to_transform(self) -> np.ndarray:
         """Convert the piece to a transformation matrix."""
@@ -78,20 +78,16 @@ class Piece(NamedTuple("Piece", [("id", int), ("position", Position),
         """
         o = chr(97 + self.orientation)
         if self.position == PLACES["A"]:
-            return "A{}{}".format(self.id + 1, o)
+            return "A{}{}".format(self.shape + 1, o)
         if self.position == PLACES["B"]:
-            return "B{}{}".format(self.id + 1, o)
+            return "B{}{}".format(self.shape + 1, o)
         if self.position == PLACES["C"]:
-            return "C{}{}".format(self.id + 1, o)
+            return "C{}{}".format(self.shape + 1, o)
         if self.position == PLACES["D"]:
-            return "D{}{}".format(self.id + 1, o)
+            return "D{}{}".format(self.shape + 1, o)
         if self.position == PLACES["E"]:
-            return "E{}{}".format(self.id + 1, o)
+            return "E{}{}".format(self.shape + 1, o)
         if self.position == PLACES["F"]:
-            return "F{}{}".format(self.id + 1, o)
+            return "F{}{}".format(self.shape + 1, o)
 
-        return "{}{}{}".format(self.position, self.id + 1, o)
-
-    def color(self) -> sp.Color:
-        """Return the color of the piece."""
-        return COLORS[self.id]
+        return "{}{}{}".format(self.position, self.shape + 1, o)

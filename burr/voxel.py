@@ -6,11 +6,41 @@ from typing import List, NamedTuple
 import numpy as np
 import scenepic as sp
 
-from .position import Axis, Position
+from .position import Axis, Direction, Position
 
 
 class Voxel(NamedTuple("Voxel", [("x", float), ("y", float), ("z", float)])):
     """A voxel in the puzzle."""
+
+    def move(self, d: Direction, steps=1) -> "Voxel":
+        """Move the voxel in the given direction.
+
+        Args:
+            d: The direction to move the voxel.
+            steps: The number of steps to move the voxel.
+
+        Returns:
+            The result of moving the voxel.
+        """
+        if d == Direction.UP:
+            return Voxel(self.x, self.y + steps, self.z)
+
+        if d == Direction.DOWN:
+            return Voxel(self.x, self.y - steps, self.z)
+
+        if d == Direction.LEFT:
+            return Voxel(self.x - steps, self.y, self.z)
+
+        if d == Direction.RIGHT:
+            return Voxel(self.x + steps, self.y, self.z)
+
+        if d == Direction.FORWARD:
+            return Voxel(self.x, self.y, self.z + steps)
+
+        if d == Direction.BACKWARD:
+            return Voxel(self.x, self.y, self.z - steps)
+
+        raise ValueError("Invalid direction")
 
     def move_to(self, p: Position, n: int) -> "Voxel":
         """Move the voxel to a new position.
@@ -62,6 +92,10 @@ class Voxel(NamedTuple("Voxel", [("x", float), ("y", float), ("z", float)])):
     def is_inside(self) -> bool:
         """Check if the voxel is inside the puzzle."""
         return -3 < self.x < 3 and -3 < self.y < 3 and -3 < self.z < 3
+
+    def __repr__(self) -> str:
+        """Return a string representation of the voxel."""
+        return f"({self.x}, {self.y}, {self.z})"
 
 
 def voxels_to_mesh(scene: sp.Scene, voxels: List[Voxel],

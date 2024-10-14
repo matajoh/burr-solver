@@ -13,8 +13,8 @@ def reconstruct_path(came_from: Mapping[PuzzleState, Tuple[PuzzleState, Move]],
     """Reconsruct the optimal path."""
     total_path = [(current, None)]
 
-    while current in came_from:
-        current, move = came_from[current]
+    while current.pieces in came_from:
+        current, move = came_from[current.pieces]
         total_path.append((current, move))
 
     total_path.reverse()
@@ -28,26 +28,30 @@ def disassemble(puzzle: Puzzle) -> List[Tuple[PuzzleState, Move]]:
     """
     start = puzzle.state()
     came_from = {}
-    g_score = {start: 0}
-    f_score = {start: puzzle.score()}
-    open_set = [(f_score[start], None, start)]
+    g_score = {start.pieces: 0}
+    f_score = {start.pieces: puzzle.score()}
+    states = {start.pieces: start}
+    open_set = [(f_score[start.pieces], None, start.pieces)]
 
     while open_set:
         _, _, current = heapq.heappop(open_set)
-        if len(current.pieces) == 0:
-            return reconstruct_path(came_from, current)
+        state = states[current]
+        if len(current) == 0:
+            return reconstruct_path(came_from, state)
 
-        new_puzzle = puzzle.to_state(current)
+        new_puzzle = puzzle.to_state(state)
+        del states[current]
         for move, neighbor in new_puzzle.valid_moves():
             tentative_g_score = g_score[current] + 1
-            if tentative_g_score < g_score.get(neighbor, sys.maxsize):
-                came_from[neighbor] = (current, move)
-                g_score[neighbor] = tentative_g_score
+            if tentative_g_score < g_score.get(neighbor.pieces, sys.maxsize):
+                came_from[neighbor.pieces] = (state, move)
+                g_score[neighbor.pieces] = tentative_g_score
                 score = new_puzzle.to_state(neighbor).score()
-                f_score[neighbor] = g_score[neighbor] + score
+                f_score[neighbor.pieces] = g_score[neighbor.pieces] + score
                 if neighbor not in open_set:
+                    states[neighbor.pieces] = neighbor
                     heapq.heappush(
-                        open_set, (f_score[neighbor], move, neighbor))
+                        open_set, (f_score[neighbor.pieces], move, neighbor.pieces))
 
     return None
 
@@ -60,9 +64,6 @@ def solve(puzzle: Puzzle) -> List[Tuple[PuzzleState, Move]]:
     optimal disassembly. If there is no disassembly, the solver
     continues searching for a solution.
     """
-    if puzzle.level() > 1:
-        print("Puzzle is level", puzzle.level(), "(Higher levels can result in longer solve times)")
-
     # The piece with the most voxels tends to be a good starting point
     first = puzzle.order_by_size()[0]
 
@@ -73,9 +74,14 @@ def solve(puzzle: Puzzle) -> List[Tuple[PuzzleState, Move]]:
 
     # Add the first piece to the frontier at all
     # valid orientations
-    for top in puzzle.pieces_at(first, "A"):
-        heapq.heappush(frontier, (len(remaining), PuzzleState((top,)),
-                                  set(remaining), {"B", "C", "D", "E", "F"}))
+    for top, voxels in puzzle.pieces_at(first, "A"):
+        if top.is_flipped():
+            # These solutions will be rotations of other solutions
+            continue
+
+        heapq.heappush(frontier, (len(remaining), PuzzleState((top,), voxels),
+                                  set(remaining),
+                                  {"B", "C", "D", "E", "F"}))
 
     num_checked = 0
     solution = None
@@ -84,24 +90,18 @@ def solve(puzzle: Puzzle) -> List[Tuple[PuzzleState, Move]]:
         if len(s_pieces) == 0:
             # Found a valid assembly, now try to disassemble
             num_checked += 1
-            if num_checked % 500 == 0:
-                print(num_checked, "assemblies...")
-
             puzzle = puzzle.to_state(state)
             solution = disassemble(puzzle)
             if solution:
-                print("Valid assembly", state, "found after checking",
-                      num_checked, "assemblies")
                 return solution
 
             continue
 
-        puzzle = puzzle.to_state(state)
         for s in s_pieces:
             for place in s_places:
-                for new_piece in puzzle.pieces_at(s, place):
-                    if puzzle.can_place(new_piece):
-                        new_state = state.add(new_piece)
+                for new_piece, new_voxels in puzzle.pieces_at(s, place):
+                    if state.voxels.isdisjoint(new_voxels):
+                        new_state = state.add(new_piece, new_voxels)
                         new_s_pieces = s_pieces - set([s])
                         new_s_places = s_places - set([place])
                         heapq.heappush(frontier, (len(new_s_pieces),

@@ -1,10 +1,10 @@
 """Shape class for the burr puzzle."""
 
 from functools import lru_cache
-from typing import List, Mapping, NamedTuple, Tuple
+from typing import List, Mapping, NamedTuple, Set, Tuple
 
 from .piece import Piece
-from .position import PLACES
+from .position import PLACES, Position
 from .voxel import Voxel
 
 
@@ -59,9 +59,9 @@ class Vec3(NamedTuple("Vec3", [("x", float), ("y", float), ("z", float)])):
 
         return False
 
-    def to_int(self) -> "Vec3":
+    def to_int(self, scale: int) -> "Vec3":
         """Casts all values to ints."""
-        return Vec3(int(self.x) * 17, int(self.y) * 17, int(self.z) * 17)
+        return Vec3(int(self.x) * scale, int(self.y) * scale, int(self.z) * scale)
 
 
 class Facet(NamedTuple("Facet", [("normal", Vec3), ("loop", Tuple[Vec3, Vec3, Vec3])])):
@@ -77,16 +77,21 @@ class Facet(NamedTuple("Facet", [("normal", Vec3), ("loop", Tuple[Vec3, Vec3, Ve
         file.write("endfacet\n")
 
 
+VoxelState = NamedTuple("VoxelState", [("orientation", int), ("voxels", Set[Voxel])])
+
+
 @lru_cache(maxsize=None)
-def align_voxels(voxels: Tuple[Voxel], piece: Piece):
+def align_voxels(voxels: Tuple[Voxel],
+                 position: Position,
+                 orientation: int) -> Tuple[Voxel, ...]:
     """Align the voxels to grid at the piece position and orientation."""
-    return tuple([v.move_to(piece.position, piece.orientation).align()
+    return tuple([v.move_to(position, orientation).align()
                   for v in voxels])
 
 
-class Shape(NamedTuple("Shape", [("voxels", Tuple[Voxel]),
+class Shape(NamedTuple("Shape", [("voxels", Tuple[Voxel, ...]),
                                  ("orientations",
-                                  Mapping[str, List[int]])])):
+                                  Mapping[str, List[VoxelState]])])):
     """A shape in the puzzle.
 
     Consists of a list of voxels centered around the origin and a mapping of
@@ -95,16 +100,24 @@ class Shape(NamedTuple("Shape", [("voxels", Tuple[Voxel]),
 
     def aligned_at(self, p: Piece) -> "Shape":
         """Return the shape with its voxels aligned to the grid for the given piece."""
-        return Shape(align_voxels(self.voxels, p), self.orientations)
+        return Shape(align_voxels(self.voxels, p.position, p.orientation), self.orientations)
 
     def inside_count(self) -> int:
         """Return the number of voxels inside the puzzle."""
-        count = 0
+        count = len(self.voxels)
         for v in self.voxels:
-            if -3 <= v.x < 3 and -3 <= v.y < 3 and -3 <= v.z < 3:
-                count += 1
+            if v.x < -2 or v.x > 2 or v.y < -2 or v.y > 2 or v.z < -2 or v.z > 2:
+                count -= 1
 
         return count
+
+    def is_inside(self) -> bool:
+        """Return whether some voxels are inside the puzzle."""
+        for v in self.voxels:
+            if v.is_inside():
+                return True
+
+        return False
 
     @staticmethod
     def from_text(text: str) -> "Shape":
@@ -130,7 +143,7 @@ class Shape(NamedTuple("Shape", [("voxels", Tuple[Voxel]),
         s = Shape(tuple(shape_voxels), valid_orientations)
         for name, place in PLACES.items():
             orientation_voxels = set()
-            orientations = []
+            orientations: Mapping[int, Tuple[Voxel, ...]] = {}
             for o in range(8):
                 piece = Piece(0, place, o)
                 voxels = tuple(sorted(s.aligned_at(piece).voxels))
@@ -138,14 +151,13 @@ class Shape(NamedTuple("Shape", [("voxels", Tuple[Voxel]),
                     orientation_voxels.add(voxels)
                     num_req = len(set(voxels).intersection(REQUIRED[name]))
                     if num_req == 8:
-                        orientations.append(o)
-                        orientation_voxels.add(voxels)
+                        orientations[o] = set(voxels)
 
-            valid_orientations[name] = orientations
+            valid_orientations[name] = [VoxelState(o, vs) for o, vs in orientations.items()]
 
         return s
 
-    def save_as_stl(self, path: str):
+    def save_as_stl(self, path: str, scale=10):
         """Save this shape as an STL file."""
         cube_vertices = [
             Vec3(-0.5, 0.5, -0.5),
@@ -182,7 +194,7 @@ class Shape(NamedTuple("Shape", [("voxels", Tuple[Voxel]),
                 loop = [cube_vertices[a] + center,
                         cube_vertices[b] + center,
                         cube_vertices[c] + center]
-                facets.append(Facet(normal, tuple([v.to_int() for v in loop])))
+                facets.append(Facet(normal, tuple([v.to_int(scale) for v in loop])))
 
         # remove duplicate facets
         facets.sort()
@@ -196,9 +208,9 @@ class Shape(NamedTuple("Shape", [("voxels", Tuple[Voxel]),
             else:
                 dedup[key] = facet
 
-        print("removed", num_removed, "facets")
-
         facets = list(dedup.values())
+
+        # TODO add give
 
         with open(path, "w") as file:
             file.write("solid burr_piece\n")

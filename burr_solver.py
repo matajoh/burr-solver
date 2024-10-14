@@ -5,6 +5,7 @@ For more information on burr puzzles, see: https://en.wikipedia.org/wiki/Burr_pu
 
 import argparse
 import json
+from typing import List, Tuple
 
 from burr import disassemble, Move, Puzzle, PuzzleState, solve, voxels_to_mesh
 import scenepic as sp
@@ -19,54 +20,32 @@ def parse_args():
                         help="Known assembly to use")
     parser.add_argument("--stl", "-s", action="store_true",
                         help="Write out shapes as STL files")
+    parser.add_argument("--sp-width", type=int, default=900,
+                        help="Width of the ScenePic solution")
+    parser.add_argument("--sp-height", type=int, default=600,
+                        help="Height of the ScenePic solution")
     return parser.parse_args()
 
 
-def main():
-    """Main function."""
-    args = parse_args()
-    puzzle: Puzzle = None
-    with open("puzzles.json") as f:
-        data = json.load(f)
-        print("Solving puzzle", args.puzzle)
-        puzzle = Puzzle.from_text(data[args.puzzle]["shapes"])
-        if args.stl:
-            for i, shape in enumerate(puzzle.shapes):
-                shape.save_as_stl(f"shape{i}.stl")
+"""Colors for each piece."""
+COLORS = [sp.Colors.Red, sp.Colors.Green, sp.Colors.Blue,
+          sp.Colors.Yellow, sp.Colors.Cyan, sp.Colors.Magenta]
 
-    # render the pieces
 
-    width = 900
-    height = 600
+def save_scenepic(path: str, puzzle: Puzzle,
+                  disassembly: List[Tuple[PuzzleState, Move]], width: int, height: int):
+    """Save the solution as a ScenePic HTML file."""
     piece_size = width // 6
     scene = sp.Scene()
     camera = sp.Camera([8, 2, 3], [0, 0, 0], [0, 1, 0], 60)
     shading = sp.Shading(bg_color=sp.Colors.White)
-    meshes = {p.id: voxels_to_mesh(scene, puzzle.shapes[p.id].voxels, str(p.id), p.color())
-              for p in puzzle.pieces}
-    for i, piece in enumerate(puzzle.pieces):
-        canvas = scene.create_canvas_3d("piece{}".format(i), width=piece_size,
+    meshes = [voxels_to_mesh(scene, shape.voxels, str(s), COLORS[s])
+              for s, shape in enumerate(puzzle.shapes)]
+    for i, mesh in enumerate(meshes):
+        canvas = scene.create_canvas_3d("shape{}".format(i), width=piece_size,
                                         height=piece_size, camera=camera, shading=shading)
         frame = canvas.create_frame()
-        frame.add_mesh(meshes[piece.id])
-
-    # solve puzzle
-
-    assemblies = data[args.puzzle]["assemblies"]
-    if args.assembly is not None and args.assembly < len(assemblies):
-        assembly = assemblies[args.assembly]
-        print("Using known assembly", assembly)
-        state = PuzzleState.from_text(assembly)
-        disassembly = disassemble(puzzle.to_state(state))
-    else:
-        disassembly = solve(puzzle)
-
-    if disassembly:
-        print("Disassembly takes", len(disassembly), "steps")
-    else:
-        print("No disassembly found")
-
-    # render the assembly
+        frame.add_mesh(mesh)
 
     cross = scene.create_mesh("cross", layer_id="wireframe")
     cross.add_cube(transform=sp.Transforms.scale(
@@ -102,7 +81,7 @@ def main():
             f += 1
             frame.add_mesh(cross)
             for piece in temp.pieces:
-                mesh = meshes[piece.id]
+                mesh = meshes[piece.shape]
                 transform = piece.to_transform()
                 frame.add_mesh(mesh, transform)
 
@@ -112,7 +91,7 @@ def main():
         frame.add_mesh(cross)
         f += 1
         for piece in assembled.pieces:
-            mesh = meshes[piece.id]
+            mesh = meshes[piece.shape]
             transform = piece.to_transform()
             frame.add_mesh(mesh, transform)
 
@@ -120,12 +99,51 @@ def main():
                grid_template_columns=f"repeat(6, {piece_size}px)")
 
     for i in range(6):
-        scene.place("piece{}".format(i), "1", str(i + 1))
+        scene.place("shape{}".format(i), "1", str(i + 1))
 
     scene.place("solution", "2", "1 / span 6")
+    scene.save_as_html(path)
 
-    scene.save_as_html("solution{}.html".format(args.puzzle))
 
+def main():
+    """Main function."""
+    args = parse_args()
+    with open("puzzles.json") as f:
+        data = json.load(f)
+        print("Solving puzzle", args.puzzle)
+        print("Shapes:")
+        shapes = data[args.puzzle]["shapes"]
+        for line in shapes:
+            print(line)
+
+        print()
+        puzzle = Puzzle.from_text(shapes)
+        if args.stl:
+            for i, shape in enumerate(puzzle.shapes):
+                shape.save_as_stl(f"shape{i}.stl")
+
+    # solve puzzle
+
+    assemblies = data[args.puzzle]["assemblies"]
+    if args.assembly is not None and args.assembly < len(assemblies):
+        assembly = assemblies[args.assembly]
+        print("Using known assembly", assembly)
+        state = puzzle.load_state(assembly)
+        disassembly = disassemble(puzzle.to_state(state))
+    else:
+        if puzzle.level() > 1:
+            print("Puzzle is level", puzzle.level(), "(Higher levels can result in longer solve times)")
+
+        disassembly = solve(puzzle)
+        print("Valid assembly:", disassembly[0][0])
+
+    if disassembly:
+        print("Disassembly takes", len(disassembly), "steps")
+    else:
+        print("No disassembly found")
+
+    path = "solution{}.html".format(args.puzzle)
+    save_scenepic(path, puzzle, disassembly, args.sp_width, args.sp_height)
     print("View solution: ./solution{}.html".format(args.puzzle))
 
 
