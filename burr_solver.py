@@ -62,17 +62,14 @@ def save_scenepic(path: str, puzzle: Puzzle,
     canvas = scene.create_canvas_3d("solution", width=width, height=height,
                                     camera=camera, shading=shading)
     frames_per_step = 10
-    num_frames = sum([0 if move is None else move.steps
-                      for _, move in disassembly]) * frames_per_step
+    num_frames = sum([move.steps
+                      for _, move in disassembly[:-1]]) * frames_per_step
     freeze_frames = 60
-    cameras = sp.Camera.orbit(num_frames + freeze_frames, 10, 1, 0, 1,
+    cameras = sp.Camera.orbit(num_frames + freeze_frames + num_frames, 10, 1, 0, 1,
                               [0, 1, 0], [0, 0, 1],
                               60, width / height, .1, 100)
     f = 0
-    for state, move in reversed(disassembly):
-        if move is None:
-            continue
-
+    for state, move in reversed(disassembly[:-1]):
         puzzle = puzzle.to_state(state)
         move_steps = move.steps * frames_per_step
         for steps in range(move_steps, 0, -1):
@@ -94,6 +91,19 @@ def save_scenepic(path: str, puzzle: Puzzle,
             mesh = meshes[piece.shape]
             transform = piece.to_transform()
             frame.add_mesh(mesh, transform)
+
+    for state, move in disassembly[:-1]:
+        puzzle = puzzle.to_state(state)
+        move_steps = move.steps * frames_per_step
+        for steps in range(0, move_steps):
+            temp = puzzle.move(Move(move.pieces, move.direction, steps / frames_per_step))
+            frame: sp.Frame3D = canvas.create_frame(camera=cameras[f])
+            f += 1
+            frame.add_mesh(cross)
+            for piece in temp.pieces:
+                mesh = meshes[piece.shape]
+                transform = piece.to_transform()
+                frame.add_mesh(mesh, transform)
 
     scene.grid(width=f"{width}px", grid_template_rows=f"{piece_size}px {height}px",
                grid_template_columns=f"repeat(6, {piece_size}px)")
