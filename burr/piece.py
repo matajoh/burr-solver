@@ -12,7 +12,7 @@ class Piece(NamedTuple("Piece", [("shape", int), ("position", Position),
                                  ("orientation", int)])):
     """A piece in the puzzle.
 
-    Each piece has an associated shape indicated by its id.
+    Each piece has an associated shape.
     """
 
     def is_flipped(self) -> bool:

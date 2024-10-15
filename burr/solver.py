@@ -2,14 +2,15 @@
 
 import heapq
 import sys
-from typing import List, Mapping, Set, Tuple
+from typing import Callable, Mapping, Tuple
 
-from .piece import Piece
+from pyrona import notice_changed, notice_read, notice_write, Region, when
+
 from .puzzle import Move, Puzzle, PuzzleState
 
 
 def reconstruct_path(came_from: Mapping[PuzzleState, Tuple[PuzzleState, Move]],
-                     current: PuzzleState) -> List[Tuple[PuzzleState, Move]]:
+                     current: PuzzleState) -> Tuple[Tuple[PuzzleState, Move]]:
     """Reconsruct the optimal path."""
     total_path = [(current, None)]
 
@@ -18,10 +19,10 @@ def reconstruct_path(came_from: Mapping[PuzzleState, Tuple[PuzzleState, Move]],
         total_path.append((current, move))
 
     total_path.reverse()
-    return total_path
+    return tuple(total_path)
 
 
-def disassemble(puzzle: Puzzle) -> List[Tuple[PuzzleState, Move]]:
+def disassemble(puzzle: Puzzle) -> Tuple[Tuple[PuzzleState, Move]]:
     """Disassemble the puzzle using A* search.
 
     For more information on A* see: https://en.wikipedia.org/wiki/A*_search_algorithm
@@ -56,7 +57,35 @@ def disassemble(puzzle: Puzzle) -> List[Tuple[PuzzleState, Move]]:
     return None
 
 
-def solve(puzzle: Puzzle) -> List[Tuple[PuzzleState, Move]]:
+def explore(puzzle: Puzzle, u: Region):
+    """Explore the space of potential assemblies."""
+    @when(u)
+    def _():
+        if notice_read("disassembly"):
+            # A valid disassembly was found, no need to continue
+            return
+
+        if len(u.pieces) == 0:
+            # Found a valid assembly, now try to disassemble
+            disassembly = disassemble(puzzle.to_state(u.state))
+            if disassembly:
+                notice_write("disassembly", disassembly)
+        else:
+            for s in u.pieces:
+                for place in u.places:
+                    for new_piece, new_voxels in puzzle.pieces_at(s, place):
+                        if u.state.voxels.isdisjoint(new_voxels):
+                            v = Region()
+                            with v:
+                                v.state = u.state.add(new_piece, new_voxels)
+                                v.pieces = u.pieces - set([s])
+                                v.places = u.places - set([place])
+
+                            v.make_shareable()
+                            explore(puzzle, v)
+
+
+def solve(puzzle: Puzzle, callback: Callable[[Tuple[Tuple[PuzzleState, Move], ...]], None]):
     """Solve the puzzle.
 
     The solver searches the space of potential assemblies. Once a
@@ -70,43 +99,22 @@ def solve(puzzle: Puzzle) -> List[Tuple[PuzzleState, Move]]:
     # The remaining pieces are ordered by the number of valid orientations
     # which will limit branching
     remaining = [s for s in puzzle.order_by_orientations() if s != first]
-    frontier: List[Tuple[int, PuzzleState, Set[Piece]]] = []
+
+    notice_changed("disassembly", callback)
 
     # Add the first piece to the frontier at all
     # valid orientations
     for top, voxels in puzzle.pieces_at(first, "A"):
         if top.is_flipped():
-            # These solutions will be rotations of other solutions
+            # we don't need to consider flipped orientations
             continue
 
-        heapq.heappush(frontier, (len(remaining), PuzzleState((top,), voxels),
-                                  set(remaining),
-                                  {"B", "C", "D", "E", "F"}))
+        v = Region()
+        with v:
+            v.state = PuzzleState((top,), voxels)
+            v.pieces = set(remaining)
+            v.places = {"B", "C", "D", "E", "F"}
 
-    num_checked = 0
-    solution = None
-    while frontier:
-        _, state, s_pieces, s_places = heapq.heappop(frontier)
-        if len(s_pieces) == 0:
-            # Found a valid assembly, now try to disassemble
-            num_checked += 1
-            puzzle = puzzle.to_state(state)
-            solution = disassemble(puzzle)
-            if solution:
-                return solution
+        v.make_shareable()
 
-            continue
-
-        for s in s_pieces:
-            for place in s_places:
-                for new_piece, new_voxels in puzzle.pieces_at(s, place):
-                    if state.voxels.isdisjoint(new_voxels):
-                        new_state = state.add(new_piece, new_voxels)
-                        new_s_pieces = s_pieces - set([s])
-                        new_s_places = s_places - set([place])
-                        heapq.heappush(frontier, (len(new_s_pieces),
-                                                  new_state,
-                                                  new_s_pieces,
-                                                  new_s_places))
-
-    raise ValueError("No valid assembly found")
+        explore(puzzle, v)

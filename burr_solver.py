@@ -8,6 +8,7 @@ import json
 from typing import List, Tuple
 
 from burr import disassemble, Move, Puzzle, PuzzleState, solve, voxels_to_mesh
+from pyrona import wait
 import scenepic as sp
 
 
@@ -132,29 +133,32 @@ def main():
             for i, shape in enumerate(puzzle.shapes):
                 shape.save_as_stl(f"shape{i}.stl")
 
-    # solve puzzle
-
     assemblies = data[args.puzzle]["assemblies"]
     if args.assembly is not None and args.assembly < len(assemblies):
         assembly = assemblies[args.assembly]
         print("Using known assembly", assembly)
         state = puzzle.load_state(assembly)
         disassembly = disassemble(puzzle.to_state(state))
-    else:
-        if puzzle.level() > 1:
-            print("Puzzle is level", puzzle.level(), "(Higher levels can result in longer solve times)")
-
-        disassembly = solve(puzzle)
-        print("Valid assembly:", disassembly[0][0])
-
-    if disassembly:
         print("Disassembly takes", len(disassembly), "steps")
+        save_scenepic(f"solution{args.puzzle}.html", puzzle, disassembly,
+                      args.sp_width, args.sp_height)
     else:
-        print("No disassembly found")
+        print("Solving level", puzzle.level(), "puzzle...")
+        found = False
 
-    path = "solution{}.html".format(args.puzzle)
-    save_scenepic(path, puzzle, disassembly, args.sp_width, args.sp_height)
-    print("View solution: ./solution{}.html".format(args.puzzle))
+        def write_solution(disassembly: Tuple[Tuple[PuzzleState, Move], ...]):
+            nonlocal found
+            print("Valid assembly:", disassembly[0][0])
+            print("Disassembly takes", len(disassembly), "steps")
+            save_scenepic(f"solution{args.puzzle}.html", puzzle, disassembly,
+                          args.sp_width, args.sp_height)
+            found = True
+
+        solve(puzzle, write_solution)
+        wait()
+
+        if not found:
+            print("No valid assembly found")
 
 
 if __name__ == "__main__":
