@@ -63,6 +63,22 @@ class Vec3(NamedTuple("Vec3", [("x", float), ("y", float), ("z", float)])):
         """Casts all values to ints."""
         return Vec3(int(self.x) * scale, int(self.y) * scale, int(self.z) * scale)
 
+    def add_clearance(self, min_dim: "Vec3", max_dim: "Vec3", clearance: float) -> "Vec3":
+        """Adjust the dimensions to create clearance between pieces."""
+        values = []
+        for a, b, c in zip(self, min_dim, max_dim):
+            if a == b or a == c:
+                values.append(a)
+            else:
+                if a - b < c - a:
+                    values.append(a - clearance)
+                elif c - a < a - b:
+                    values.append(a + clearance)
+                else:
+                    values.append(a)
+
+        return Vec3(*values)
+
 
 class Facet(NamedTuple("Facet", [("normal", Vec3), ("loop", Tuple[Vec3, Vec3, Vec3])])):
     """A facet (triangle) in an STL mesh."""
@@ -75,6 +91,11 @@ class Facet(NamedTuple("Facet", [("normal", Vec3), ("loop", Tuple[Vec3, Vec3, Ve
             file.write(f"    vertex {v.x} {v.y} {v.z}\n")
         file.write("  endloop\n")
         file.write("endfacet\n")
+
+    def add_clearance(self, min_dim: Vec3, max_dim: Vec3, clearance: float) -> "Facet":
+        """Adjust the dimensions to create clearance between pieces."""
+        return Facet(self.normal, [v.add_clearance(min_dim, max_dim, clearance)
+                                   for v in self.loop])
 
 
 VoxelState = NamedTuple("VoxelState", [("orientation", int), ("voxels", Set[Voxel])])
@@ -157,7 +178,7 @@ class Shape(NamedTuple("Shape", [("voxels", Tuple[Voxel, ...]),
 
         return s
 
-    def save_as_stl(self, path: str, scale=10):
+    def save_as_stl(self, path: str, scale=10, clearance=0.5):
         """Save this shape as an STL file."""
         cube_vertices = [
             Vec3(-0.5, 0.5, -0.5),
@@ -210,7 +231,11 @@ class Shape(NamedTuple("Shape", [("voxels", Tuple[Voxel, ...]),
 
         facets = list(dedup.values())
 
-        # TODO add give
+        # add clearance
+        min_dim = Vec3(-scale, -scale, -3 * scale)
+        max_dim = Vec3(scale, scale, 3 * scale)
+        facets = [f.add_clearance(min_dim, max_dim, clearance)
+                  for f in facets]
 
         with open(path, "w") as file:
             file.write("solid burr_piece\n")
